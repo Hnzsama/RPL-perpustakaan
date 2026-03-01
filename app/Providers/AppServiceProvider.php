@@ -26,15 +26,15 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
-        if (app()->environment('local')) {
-            URL::forceScheme('https');
-            URL::forceRootUrl(config('app.url'));
+        // if (app()->environment('local')) {
+        //     URL::forceScheme('https');
+        //     URL::forceRootUrl(config('app.url'));
 
-            // Fix for Livewire/Signed URLs behind Ngrok
-            if (str_contains(config('app.url'), 'https://')) {
-                $this->app['request']->server->set('HTTPS', 'on');
-            }
-        }
+        //     // Fix for Livewire/Signed URLs behind Ngrok
+        //     if (str_contains(config('app.url'), 'https://')) {
+        //         $this->app['request']->server->set('HTTPS', 'on');
+        //     }
+        // }
     }
 
     /**
