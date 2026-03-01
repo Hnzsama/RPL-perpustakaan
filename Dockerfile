@@ -4,7 +4,7 @@ FROM php:8.4-fpm
 ARG user=www-data
 ARG uid=1000
 
-# Install system dependencies
+# Install system dependencies including nginx for serving HTTP traffic on Railway
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    libzip-dev
+    libzip-dev \
+    nginx
 
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -45,8 +46,32 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN npm install
 RUN npm run build
 
+# Setting up Laravel permissions
+RUN chown -R $user:$user /var/www \
+    && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
+
+# Setup Nginx for single-container deployment (e.g. Railway)
+COPY docker-compose/nginx/perpustakaan.conf /etc/nginx/sites-available/default
+# Change port 80 to 8080 since we're not running as root, and use localhost for PHP-FPM
+RUN sed -i 's/listen 80;/listen 8080;/' /etc/nginx/sites-available/default \
+    && sed -i 's/fastcgi_pass app:9000;/fastcgi_pass 127.0.0.1:9000;/' /etc/nginx/sites-available/default
+
+# Forward nginx logs
+RUN ln -sf /dev/stdout /var/log/nginx/access.log \
+    && ln -sf /dev/stderr /var/log/nginx/error.log
+
+# Ensure nginx can be run by non-root user
+RUN chown -R $user:$user /var/lib/nginx /var/log/nginx /run
+
+# Create a startup script to run both PHP-FPM and Nginx
+RUN echo '#!/bin/sh\n\
+php-fpm -D\n\
+nginx -g "daemon off;"' > /app-start.sh && chmod +x /app-start.sh
+
 # Change current user to www
 USER $user
 
-EXPOSE 9000
-CMD ["php-fpm"]
+# Expose HTTP port
+EXPOSE 8080
+
+CMD ["/app-start.sh"]
