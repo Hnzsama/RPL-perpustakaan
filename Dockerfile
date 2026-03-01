@@ -1,0 +1,52 @@
+FROM php:8.2-fpm
+
+# Arguments defined in docker-compose.yml
+ARG user=www-data
+ARG uid=1000
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    libzip-dev
+
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+
+# Get latest Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Setup working directory
+WORKDIR /var/www
+
+# Remove default server definition
+RUN rm -rf /var/www/html
+
+# Copy existing application directory contents
+COPY . /var/www
+
+# Copy existing application directory permissions
+COPY --chown=$user:$user . /var/www
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
+# Install dependencies and build assets
+RUN composer install --no-interaction --optimize-autoloader --no-dev
+RUN npm install
+RUN npm run build
+
+# Change current user to www
+USER $user
+
+EXPOSE 9000
+CMD ["php-fpm"]
