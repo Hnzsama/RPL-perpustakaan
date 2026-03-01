@@ -63,8 +63,15 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log \
 # Ensure nginx can be run by non-root user
 RUN chown -R $user:$user /var/lib/nginx /var/log/nginx /run
 
-# Create a startup script to run both PHP-FPM and Nginx
+# Create a startup script to run Laravel configurations, then start PHP-FPM and Nginx
 RUN echo '#!/bin/sh\n\
+php artisan key:generate --force\n\
+php artisan storage:link --force\n\
+php artisan optimize:clear\n\
+php artisan config:cache\n\
+php artisan event:cache\n\
+php artisan route:cache\n\
+php artisan view:cache\n\
 php-fpm -D\n\
 nginx -g "daemon off;"' > /app-start.sh && chmod +x /app-start.sh
 
