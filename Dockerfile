@@ -65,6 +65,8 @@ RUN chown -R $user:$user /var/lib/nginx /var/log/nginx /run
 
 # Create a startup script to run Laravel configurations, then start PHP-FPM and Nginx
 RUN echo '#!/bin/sh\n\
+php artisan migrate --force\n\
+php artisan db:seed --force\n\
 php artisan key:generate --force\n\
 php artisan storage:link --force\n\
 php artisan optimize:clear\n\
