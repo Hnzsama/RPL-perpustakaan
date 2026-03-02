@@ -41,6 +41,10 @@ COPY --chown=$user:$user . /var/www
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
+# Accept Railway variables before build
+ARG APP_URL
+ENV APP_URL=$APP_URL
+
 # Install dependencies and build assets
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 RUN npm install
