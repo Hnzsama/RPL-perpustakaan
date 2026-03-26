@@ -1,6 +1,10 @@
 # Dokumentasi Desain Sistem Perpustakaan
 
-Dokumen ini berisi rancangan teknis aplikasi perpustakaan, termasuk DFD, Activity Diagram, dan Use Case Diagram.
+Dokumen ini berisi rancangan teknis aplikasi perpustakaan, termasuk DFD, Activity Diagram, Use Case Diagram, ERD, dan Desain Migrasi.
+
+**Catatan Tools:**
+- ERD Diagram dibuat menggunakan: [dbdiagram.io](https://dbdiagram.io/home)
+- Diagram lainnya (Use Case, DFD, Activity) dibuat menggunakan: [PlantText](https://www.planttext.com/)
 
 ---
 
@@ -35,6 +39,8 @@ admin --> uc_settings
 @enduml
 ```
 
+![Use Case Diagram](../public/diagram/usecase.jpeg)
+
 ---
 
 ## 2. Data Flow Diagrams (DFD)
@@ -60,6 +66,8 @@ system --> admin : Info Ketersediaan Buku
 system --> admin : Rekap Transaksi & Denda
 @enduml
 ```
+
+![DFD Level 0](../public/diagram/dfd0.jpeg)
 
 ### DFD Level 1 (Overview Diagram)
 
@@ -105,9 +113,13 @@ db_fines --> admin : Laporan Denda
 @enduml
 ```
 
+![DFD Level 1](../public/diagram/dfd1.jpeg)
+
 ---
 
 ## 3. Action Diagrams (Activity Diagrams)
+
+![Action Diagram](../public/diagram/action.jpeg)
 
 ### Activity Diagram: Peminjaman Buku
 
@@ -153,3 +165,66 @@ endif
 stop
 @enduml
 ```
+
+---
+
+## 4. Entity Relationship Diagram (ERD)
+
+![ERD](../public/diagram/erd.jpeg)
+
+---
+
+## 5. Desain Migrasi Database (Migration Design)
+
+Desain tabel dan relasi pada database untuk mendukung sistem perpustakaan:
+
+1. **`users`** (Admin / Pustakawan)
+   - `id` (PK)
+   - `name` (string)
+   - `email` (string, unique)
+   - `password` (string)
+   - `timestamps`
+
+2. **`categories`**
+   - `id` (PK)
+   - `name` (string)
+   - `description` (text, nullable)
+   - `timestamps`
+
+3. **`books`**
+   - `id` (PK)
+   - `title` (string)
+   - `author` (string)
+   - `publisher` (string)
+   - `published_year` (year)
+   - `category_id` (FK to categories.id)
+   - `stock` (integer)
+   - `timestamps`
+
+4. **`members`**
+   - `id` (PK)
+   - `name` (string)
+   - `email` (string, unique)
+   - `phone` (string)
+   - `address` (text)
+   - `status` (enum: active, inactive)
+   - `timestamps`
+
+5. **`borrowings`**
+   - `id` (PK)
+   - `member_id` (FK to members.id)
+   - `book_id` (FK to books.id)
+   - `borrow_date` (date)
+   - `due_date` (date)
+   - `return_date` (date, nullable)
+   - `status` (enum: borrowed, returned, overdue)
+   - `timestamps`
+
+6. **`fines`**
+   - `id` (PK)
+   - `borrowing_id` (FK to borrowings.id)
+   - `amount` (decimal)
+   - `status` (enum: unpaid, paid)
+   - `paid_at` (timestamp, nullable)
+   - `timestamps`
+
