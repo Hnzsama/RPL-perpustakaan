@@ -7,16 +7,22 @@ use App\Models\Book;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class BookController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        return Inertia::render('books/page', [
-            'books' => Book::with('category')->get(),
-            'categories' => Category::all(),
-        ]);
+        try {
+            return Inertia::render('books/page', [
+                'books' => Book::with('category')->get(),
+                'categories' => Category::all(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Book Index Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat data buku: ' . $e->getMessage());
+        }
     }
 
     public function store(Request $request)
@@ -31,9 +37,17 @@ class BookController extends Controller
             'stock' => 'required|integer|min:0',
         ]);
 
-        Book::create($validated);
+        try {
+            DB::beginTransaction();
+            Book::create($validated);
+            DB::commit();
 
-        return back()->with('status', 'Buku berhasil ditambahkan.');
+            return back()->with('status', 'Buku berhasil ditambahkan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Book Store Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menambahkan buku: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, Book $book)
@@ -48,15 +62,31 @@ class BookController extends Controller
             'stock' => 'required|integer|min:0',
         ]);
 
-        $book->update($validated);
+        try {
+            DB::beginTransaction();
+            $book->update($validated);
+            DB::commit();
 
-        return back()->with('status', 'Data buku berhasil diperbarui.');
+            return back()->with('status', 'Data buku berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Book Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui buku: ' . $e->getMessage());
+        }
     }
 
     public function destroy(Book $book)
     {
-        $book->delete();
+        try {
+            DB::beginTransaction();
+            $book->delete();
+            DB::commit();
 
-        return back()->with('status', 'Buku berhasil dihapus.');
+            return back()->with('status', 'Buku berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Book Destroy Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menghapus buku: ' . $e->getMessage());
+        }
     }
 }

@@ -6,26 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Models\Book;
 use App\Models\Borrowing;
 use App\Models\Member;
-use App\Models\LibrarySetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class BorrowingController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        // Automatically process overdues and fines before serving the page
-        \App\Services\OverdueService::processOverdue();
+        try {
+            // Automatically process overdues and fines before serving the page
+            \App\Services\OverdueService::processOverdue();
 
-        $borrowings = Borrowing::with(['book', 'member'])->get();
+            $borrowings = Borrowing::with(['book', 'member'])->get();
 
-        return Inertia::render('borrowings/page', [
-            'borrowings' => $borrowings,
-            'books' => Book::where('stock', '>', 0)->get(),
-            'members' => Member::whereNull('user_id')->get(),
-        ]);
+            return Inertia::render('borrowings/page', [
+                'borrowings' => $borrowings,
+                'books' => Book::where('stock', '>', 0)->get(),
+                'members' => Member::whereNull('user_id')->get(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Borrowing Index Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat data peminjaman: ' . $e->getMessage());
+        }
     }
 
     public function store(Request $request)
@@ -37,15 +41,25 @@ class BorrowingController extends Controller
             'due_date' => 'required|date|after_or_equal:borrow_date',
         ]);
 
-        $validated['status'] = 'borrowed';
+        try {
+            DB::beginTransaction();
 
-        Borrowing::create($validated);
+            $validated['status'] = 'borrowed';
 
-        // Decrease book stock
-        $book = Book::findOrFail($validated['book_id']);
-        $book->decrement('stock');
+            Borrowing::create($validated);
 
-        return back()->with('status', 'Peminjaman berhasil dicatat.');
+            // Decrease book stock
+            $book = Book::findOrFail($validated['book_id']);
+            $book->decrement('stock');
+
+            DB::commit();
+
+            return back()->with('status', 'Peminjaman berhasil dicatat.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Borrowing Store Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat mencatat peminjaman: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, Borrowing $borrowing)
@@ -55,24 +69,44 @@ class BorrowingController extends Controller
             'return_date' => 'nullable|date',
         ]);
 
-        $oldStatus = $borrowing->status;
-        $borrowing->update($validated);
+        try {
+            DB::beginTransaction();
 
-        // If returned, increase book stock
-        if ($oldStatus !== 'returned' && $validated['status'] === 'returned') {
-            $borrowing->book->increment('stock');
+            $oldStatus = $borrowing->status;
+            $borrowing->update($validated);
+
+            // If returned, increase book stock
+            if ($oldStatus !== 'returned' && $validated['status'] === 'returned') {
+                $borrowing->book->increment('stock');
+            }
+
+            DB::commit();
+
+            return back()->with('status', 'Status peminjaman diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Borrowing Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui status peminjaman: ' . $e->getMessage());
         }
-
-        return back()->with('status', 'Status peminjaman diperbarui.');
     }
 
     public function destroy(Borrowing $borrowing)
     {
-        if ($borrowing->status === 'borrowed') {
-            $borrowing->book->increment('stock');
-        }
-        $borrowing->delete();
+        try {
+            DB::beginTransaction();
 
-        return back()->with('status', 'Data peminjaman dihapus.');
+            if ($borrowing->status === 'borrowed') {
+                $borrowing->book->increment('stock');
+            }
+            $borrowing->delete();
+
+            DB::commit();
+
+            return back()->with('status', 'Data peminjaman dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Borrowing Destroy Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menghapus data peminjaman: ' . $e->getMessage());
+        }
     }
 }

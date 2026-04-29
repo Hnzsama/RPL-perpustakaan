@@ -17,7 +17,7 @@ class UserSeeder extends Seeder
             'email' => 'admin@perpus.com',
             'password' => \Illuminate\Support\Facades\Hash::make('password'),
         ]);
-
+        
         \App\Models\Member::create([
             'user_id' => $admin->id,
             'member_code' => 'ADM-001',

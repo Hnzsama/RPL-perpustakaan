@@ -6,15 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class CategoryController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        return Inertia::render('categories/page', [
-            'categories' => Category::all(),
-        ]);
+        try {
+            return Inertia::render('categories/page', [
+                'categories' => Category::all(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Category Index Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat data kategori: ' . $e->getMessage());
+        }
     }
 
     public function store(Request $request)
@@ -24,9 +30,17 @@ class CategoryController extends Controller
             'slug' => 'required|unique:categories',
         ]);
 
-        Category::create($validated);
+        try {
+            DB::beginTransaction();
+            Category::create($validated);
+            DB::commit();
 
-        return back()->with('status', 'Kategori berhasil ditambahkan.');
+            return back()->with('status', 'Kategori berhasil ditambahkan.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Category Store Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menambahkan kategori: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request, Category $category)
@@ -36,15 +50,31 @@ class CategoryController extends Controller
             'slug' => 'required|unique:categories,slug,' . $category->id,
         ]);
 
-        $category->update($validated);
+        try {
+            DB::beginTransaction();
+            $category->update($validated);
+            DB::commit();
 
-        return back()->with('status', 'Kategori berhasil diperbarui.');
+            return back()->with('status', 'Kategori berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Category Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui kategori: ' . $e->getMessage());
+        }
     }
 
     public function destroy(Category $category)
     {
-        $category->delete();
+        try {
+            DB::beginTransaction();
+            $category->delete();
+            DB::commit();
 
-        return back()->with('status', 'Kategori berhasil dihapus.');
+            return back()->with('status', 'Kategori berhasil dihapus.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Category Destroy Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menghapus kategori: ' . $e->getMessage());
+        }
     }
 }

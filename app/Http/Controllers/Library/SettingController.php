@@ -6,15 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\LibrarySetting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class SettingController extends Controller
 {
-    public function index(): Response
+    public function index()
     {
-        return Inertia::render('settings/page', [
-            'settings' => LibrarySetting::all(),
-        ]);
+        try {
+            return Inertia::render('settings/page', [
+                'settings' => LibrarySetting::all(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Setting Index Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat daftar pengaturan: ' . $e->getMessage());
+        }
     }
 
     public function update(Request $request)
@@ -25,10 +31,20 @@ class SettingController extends Controller
             'settings.*.value' => 'required',
         ]);
 
-        foreach ($validated['settings'] as $item) {
-            LibrarySetting::where('key', $item['key'])->update(['value' => $item['value']]);
-        }
+        try {
+            DB::beginTransaction();
 
-        return back()->with('status', 'Pengaturan berhasil diperbarui.');
+            foreach ($validated['settings'] as $item) {
+                LibrarySetting::where('key', $item['key'])->update(['value' => $item['value']]);
+            }
+
+            DB::commit();
+
+            return back()->with('status', 'Pengaturan berhasil diperbarui.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Setting Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui pengaturan: ' . $e->getMessage());
+        }
     }
 }

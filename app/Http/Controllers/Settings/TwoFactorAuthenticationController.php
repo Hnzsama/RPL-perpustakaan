@@ -7,8 +7,8 @@ use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
-use Inertia\Response;
 use Laravel\Fortify\Features;
+use Illuminate\Support\Facades\Log;
 
 class TwoFactorAuthenticationController extends Controller implements HasMiddleware
 {
@@ -25,13 +25,18 @@ class TwoFactorAuthenticationController extends Controller implements HasMiddlew
     /**
      * Show the user's two-factor authentication settings page.
      */
-    public function show(TwoFactorAuthenticationRequest $request): Response
+    public function show(TwoFactorAuthenticationRequest $request)
     {
-        $request->ensureStateIsValid();
+        try {
+            $request->ensureStateIsValid();
 
-        return Inertia::render('settings/two-factor', [
-            'twoFactorEnabled' => $request->user()->hasEnabledTwoFactorAuthentication(),
-            'requiresConfirmation' => Features::optionEnabled(Features::twoFactorAuthentication(), 'confirm'),
-        ]);
+            return Inertia::render('settings/two-factor', [
+                'twoFactorEnabled' => $request->user()->hasEnabledTwoFactorAuthentication(),
+                'requiresConfirmation' => Features::optionEnabled(Features::twoFactorAuthentication(), 'confirm'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Two Factor Auth Show Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan memuat halaman: ' . $e->getMessage());
+        }
     }
 }

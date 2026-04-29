@@ -6,16 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class PasswordController extends Controller
 {
     /**
      * Show the user's password settings page.
      */
-    public function edit(): Response
+    public function edit()
     {
-        return Inertia::render('settings/password');
+        try {
+            return Inertia::render('settings/password');
+        } catch (\Exception $e) {
+            Log::error('Password Edit Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat halaman pengaturan password: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -23,10 +29,20 @@ class PasswordController extends Controller
      */
     public function update(PasswordUpdateRequest $request): RedirectResponse
     {
-        $request->user()->update([
-            'password' => $request->password,
-        ]);
+        try {
+            DB::beginTransaction();
 
-        return back();
+            $request->user()->update([
+                'password' => $request->password,
+            ]);
+
+            DB::commit();
+
+            return back();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Password Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui password: ' . $e->getMessage());
+        }
     }
 }

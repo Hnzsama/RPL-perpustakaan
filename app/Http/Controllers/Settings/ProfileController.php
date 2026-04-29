@@ -10,19 +10,25 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
     /**
      * Show the user's profile settings page.
      */
-    public function edit(Request $request): Response
+    public function edit(Request $request)
     {
-        return Inertia::render('settings/profile', [
-            'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
-            'status' => $request->session()->get('status'),
-        ]);
+        try {
+            return Inertia::render('settings/profile', [
+                'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
+                'status' => $request->session()->get('status'),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Profile Edit Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memuat form profil: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -30,15 +36,25 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        try {
+            DB::beginTransaction();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+            $request->user()->fill($request->validated());
+
+            if ($request->user()->isDirty('email')) {
+                $request->user()->email_verified_at = null;
+            }
+
+            $request->user()->save();
+
+            DB::commit();
+
+            return to_route('profile.edit');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Profile Update Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat memperbarui profil: ' . $e->getMessage());
         }
-
-        $request->user()->save();
-
-        return to_route('profile.edit');
     }
 
     /**
@@ -46,15 +62,25 @@ class ProfileController extends Controller
      */
     public function destroy(ProfileDeleteRequest $request): RedirectResponse
     {
-        $user = $request->user();
+        try {
+            DB::beginTransaction();
 
-        Auth::logout();
+            $user = $request->user();
 
-        $user->delete();
+            Auth::logout();
 
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+            $user->delete();
 
-        return redirect('/');
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            DB::commit();
+
+            return redirect('/');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Profile Destroy Error: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan saat menghapus profil: ' . $e->getMessage());
+        }
     }
 }
